@@ -3,19 +3,25 @@ title: "License"
 output:
   workflowr::wflow_html:
     toc: false
+    theme: cosmo
 editor_options:
   chunk_output_type: console
 ---
 
-What license are you using for your code? See [choosealicense.com][choose] for
-help deciding. It's a convention to save a file `LICENSE` in the root of your
-Git repo that contains the license text.
+<style>
+body {text-align: justify}
+</style>
 
-What license are you using for the written content on your site? It is
-traditional to choose a [Creative Commons][cc] license for this type of content.
+MIT License
 
-[choose]: http://choosealicense.com/
-[cc]: https://creativecommons.org/choose/
+Copyright (c) 2021 Qingqing Chen, Ate Poorthuis and I-Ting Chuang
 
-How should others cite your work? It's a convention to save a file `CITATION`
-in the root of your Git repo that contains the citation information.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
