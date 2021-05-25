@@ -1,0 +1,949 @@
+---
+title: "Regression analysis"
+date: "last compiled date: `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  workflowr::wflow_html:
+    toc: false
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+<style>
+body {text-align: justify}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align='center', fig.width = 10, fig.height = 10, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(tmap)
+library(stars)
+library(RColorBrewer)
+library(purrrogress)
+library(here)
+library(broom)
+library(spdep)
+library(PerformanceAnalytics)
+library(stargazer)
+source(here("code/viz.R"))
+```
+
+To provide an additional quantitative explanation of the patterns found in the subsequent analysis, we compare two of the aforementioned metrics – distance and diversity – with the socio-economic and built-environment characteristics of each grid cell through a spatial regression analysis. We do so by drawing on a set of publicly-available datasets, including the HDB Resale Flat Prices data,  HDB Property Information data, SLA Street Directory data, and LTA Train Station data. Based on these datasets, we construct the following independent variables for the 353 grid cells with public housing:
+
+  - Mean resale price per square meter;
+  - Percentage of 1-Room and 2-Room rental flats;
+  - Percentage of residential building area;
+  - Percentage of industrial building area;
+  - Distance to the nearest MRT station;
+  - Distance to the central grid cell.
+  
+It is important to stress that we employ this regression model not to predict travel distance or mobility diversity based on these independent variables but rather to provide an initial quantitative exploration of the potential underlying covariates that influence mobility patterns in Singapore.
+
+
+## Load data 
+
+```{r}
+# hexagonal grids 
+grids <- read_sf(here("data/derived_data/spatial_hex_grid.shp"), quiet = T) %>%
+  st_transform(crs = 3414)
+
+# grid centroids 
+grid_centroids <- grids %>% st_centroid()
+
+# HDB buildings
+hdb_sf <-  read_sf(here("data/derived_data/spatial_hdb_building.shp"))
+
+# inflow and outflow distance
+dist_inflow <- readRDS(here("data/derived_data/dist_visitor_points.rds"))
+dist_outflow <- readRDS(here("data/derived_data/dist_local_points.rds"))
+
+# inflow and outflow diversity 
+div_inflow <- readRDS(here("data/derived_data/inflow_diversity.rds"))
+div_outflow <- readRDS(here("data/derived_data/outflow_diversity.rds"))
+```
+
+
+## Dependent variables 
+
+### HDB resale price
+```{r}
+if(file.exists(here("data/derived_data/sf_resale.rds"))){
+  sf_resale <- readRDS(here("data/derived_data/sf_resale.rds"))
+}else{
+  df_resale_12to14 <- read_csv(here("data/raw_data/resale-flat-prices/resale-flat-prices-based-on-registration-date-from-mar-2012-to-dec-2014.csv"))
+  df_resale_15to16  <- read_csv(here("data/raw_data/resale-flat-prices/resale-flat-prices-based-on-registration-date-from-jan-2015-to-dec-2016.csv"))  
+  df_resale <- bind_rows(df_resale_12to14, df_resale_15to16) %>% 
+    mutate(month = ymd(month, truncated = 1)) %>% 
+    filter(month >= '2012-07-01' & month < '2016-11-01') 
+  # format street name 
+  df_resale <- df_resale %>% 
+    mutate(ROAD_NAME = gsub("\\bAVE\\b", "AVENUE", street_name),
+           ROAD_NAME = gsub("\\bBT\\b", "BUKIT", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCL\\b", "CLOSE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCRES\\b", "CRESCENT", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCTRL\\b", "CENTRAL", ROAD_NAME),
+           ROAD_NAME = gsub("\\bC'WEALTH\\b", "COMMONWEALTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCTR\\b", "CENTRE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bDR\\b", "DRIVE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bGDNS\\b", "GARDENS", ROAD_NAME),
+           ROAD_NAME = gsub("\\bHTS\\b", "HEIGHTS", ROAD_NAME),
+           ROAD_NAME = gsub("\\bJLN\\b", "JALAN", ROAD_NAME),
+           ROAD_NAME = gsub("\\bKG\\b", "KAMPONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bLOR\\b", "LORONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bMKT\\b", "MARKET", ROAD_NAME),
+           ROAD_NAME = gsub("\\bNTH\\b", "NORTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bPL\\b", "PLACE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bPK\\b", "PARK", ROAD_NAME),
+           ROAD_NAME = gsub("\\bRD\\b", "ROAD", ROAD_NAME),
+           ROAD_NAME = gsub("\\bST\\b", "STREET", ROAD_NAME),
+           ROAD_NAME = gsub("\\bSTH\\b", "SOUTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bTER\\b", "TERRACE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bTG\\b", "TANJONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bUPP\\b", "UPPER", ROAD_NAME)) %>%
+      mutate(ROAD_NAME = case_when(
+        ROAD_NAME == "STREET. GEORGE'S LANE" ~ "SAINT GEORGE'S LANE",
+        ROAD_NAME == "STREET. GEORGE'S ROAD" ~ "SAINT GEORGE'S ROAD",
+        TRUE ~ ROAD_NAME
+      )) %>%
+      dplyr::rename(HOUSE_BLK_ = block) %>%
+      unite(ROAD_BLK, c("ROAD_NAME", "HOUSE_BLK_")) %>%
+      mutate(ROAD_BLK = case_when(
+        ROAD_BLK == "CHOA CHU KANG AVENUE 2_297A" ~ "CHOA CHU KANG AVENUE 2_297",
+        ROAD_BLK == "CHOA CHU KANG AVENUE 2_297B" ~ "CHOA CHU KANG AVENUE 2_297",
+        TRUE ~ ROAD_BLK
+      ))
+    
+   # add geometry to each resale transaction
+    sf_resale <- hdb_sf %>%
+      left_join(df_resale, ., by = c("ROAD_BLK" = "ROAD_BLK")) %>%
+      st_as_sf() %>%
+      st_transform(crs = 3414) %>%
+      st_join(., grids, largest = T) %>% 
+      filter(!is.na(grid_id)) 
+    saveRDS(sf_resale, file = here("data/derived_data/sf_resale.rds"))
+}
+
+head(sf_resale)
+```
+
+```{r}
+mean_resale <- sf_resale %>% 
+  st_set_geometry(NULL) %>% 
+  dplyr::select(grid_id, floor_area_sqm, resale_price) %>% 
+  mutate(resale_price_sqm = resale_price/floor_area_sqm) %>% 
+  group_by(grid_id) %>% 
+  dplyr::summarise(mean_resale_price_sqm = mean(resale_price_sqm),
+                   sd_resale_price_sqm = sd(resale_price_sqm)) 
+
+## grid cells with available socio-economic variables and human mobility indicators
+qualified_grids_inflow <- intersect(mean_resale$grid_id, div_inflow$grid_id) %>% intersect(dist_inflow$grid_id)
+qualified_grids_outflow <- intersect(mean_resale$grid_id, div_outflow$grid_id) %>% intersect(dist_outflow$grid_id)
+
+mean_resale_sf <- mean_resale %>%
+  filter(grid_id %in% qualified_grids_inflow) %>% 
+  left_join(., grids, by = c("grid_id" = "grid_id")) %>% 
+  st_sf()
+```
+
+
+```{r}
+spatial_viz(mean_resale_sf, 
+            fill_var = "mean_resale_price_sqm", 
+            legend_title = "Avg.resale price/sqm", 
+            main_title = "(a) Spatial distribution of average resale price", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65,
+            digits = 0, palette = "PuRd")
+
+# spatial_viz(mean_resale_sf, 
+#             fill_var = "sd_resale_price_sqm", 
+#             legend_title = "S.D.resale price/sqm", 
+#             main_title = "(a) Spatial distribution of S.D of resale price", 
+#             main.title_size = 1.4,
+#             legend.hist_height = 0.25, legend.hist_width = 0.5,
+#             legend_width = 0.4, legend.hist_size = 0.5,
+#             legend.title_size = 1.2, legend.text_size = 0.65,
+#             digits = 0, palette = "PuRd")
+```
+
+```{r fig.height=5}
+violin_viz(mean_resale_sf, var = "mean_resale_price_sqm", 
+           labs.x = "", labs.y = "Avg.resale price/sqm", breaks = seq(0, 9000, 1000),
+           y.shift = 1050, x.shift = 1.4, text.size = 4, digits = 0)
+```
+
+### Percentage of 1-ROOM and 2-Room rental flats
+
+```{r}
+#HDB Property Information: https://data.gov.sg/dataset/hdb-property-information
+if(file.exists(here("data/derived_data/df_pct_1_2room_rental.rds"))){
+  df_pct_1_2room_rental <- readRDS(here("data/derived_data/df_pct_1_2room_rental.rds"))
+}else{
+  df_hdb_property <- read_csv(here("data/raw_data/hdb-property-information.csv")) 
+  df_hdb_property_updated <-  df_hdb_property %>% 
+    mutate(ROAD_NAME = gsub("\\bDR\\b", "DRIVE", street),
+           ROAD_NAME = gsub("\\bRD\\b", "ROAD", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCRES\\b", "CRESCENT", ROAD_NAME),
+           ROAD_NAME = gsub("\\bAVE\\b", "AVENUE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bST\\b", "STREET", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCTRL\\b", "CENTRAL", ROAD_NAME),
+           ROAD_NAME = gsub("\\bNTH\\b", "NORTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bSTH\\b", "SOUTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bBT\\b", "BUKIT", ROAD_NAME),
+           ROAD_NAME = gsub("\\bC'WEALTH\\b", "COMMONWEALTH", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCL\\b", "CLOSE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bPK\\b", "PARK", ROAD_NAME),
+           ROAD_NAME = gsub("\\bJLN\\b", "JALAN", ROAD_NAME),
+           ROAD_NAME = gsub("\\bKG\\b", "KAMPONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bPL\\b", "PLACE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bLOR\\b", "LORONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bTER\\b", "TERRACE", ROAD_NAME),
+           ROAD_NAME = gsub("\\bMKT\\b", "MARKET", ROAD_NAME),
+           ROAD_NAME = gsub("\\bUPP\\b", "UPPER", ROAD_NAME),
+           ROAD_NAME = gsub("\\bGDNS\\b", "GARDENS", ROAD_NAME),
+           ROAD_NAME = gsub("\\bTG\\b", "TANJONG", ROAD_NAME),
+           ROAD_NAME = gsub("\\bHTS\\b", "HEIGHTS", ROAD_NAME),
+           ROAD_NAME = gsub("\\bCTR\\b", "CENTRE", ROAD_NAME)) %>%
+    mutate(ROAD_NAME = case_when(
+          ROAD_NAME == "STREET. GEORGE'S LANE" ~ "SAINT GEORGE'S LANE",
+          ROAD_NAME == "STREET. GEORGE'S ROAD" ~ "SAINT GEORGE'S ROAD",
+          ROAD_NAME == "SECTOR A SIN MING IND EST" ~ "SECTOR A SIN MING INDUSTRIAL ESTATE", 
+          TRUE ~ ROAD_NAME
+          ))  %>%
+    dplyr::rename(HOUSE_BLK_ = blk_no) %>%
+    unite(ROAD_BLK, c("ROAD_NAME", "HOUSE_BLK_")) %>% 
+    dplyr::select(ROAD_BLK, `1room_rental`, `2room_rental`, total_dwelling_units) %>% 
+    mutate(ROAD_BLK = case_when(
+            ROAD_BLK == "CHOA CHU KANG AVENUE 2_297A" ~ "CHOA CHU KANG AVENUE 2_297",
+            ROAD_BLK == "CHOA CHU KANG AVENUE 2_297B" ~ "CHOA CHU KANG AVENUE 2_297",
+            TRUE ~ ROAD_BLK
+          ))
+      
+  # get extra two Blks that are under 'S' and 'K' building type
+  extra_building_sf <- df_building %>% 
+    filter(ROAD_NAME %in% c("NEW MARKET ROAD", "JALAN KUKOH") & HOUSE_BLK_ %in% c(1, 32)) %>% 
+    unite(ROAD_BLK, c("ROAD_NAME", "HOUSE_BLK_")) %>% 
+    st_transform(crs = 3414) %>% 
+    dplyr::select(names(hdb_sf))
+
+  df_1_2room_rental <- df_hdb_property_updated %>% 
+    filter(total_dwelling_units != 0) %>% 
+    left_join(., rbind(hdb_sf, extra_building_sf)) %>% 
+    st_as_sf() %>% 
+    st_make_valid() %>% 
+    st_join(., grids, largest = T) %>% # join grids 
+    filter(!is.na(grid_id)) %>% 
+    group_by(grid_id) %>% 
+    dplyr::summarise(`1room_rental` = sum(`1room_rental`), 
+                     `2room_rental` = sum(`2room_rental`), 
+                      total_dwelling_units = sum(total_dwelling_units))
+    
+  df_pct_1_2room_rental <- df_1_2room_rental %>% 
+    st_set_geometry(NULL) %>% 
+    mutate(pct_1_2room_rental = (`1room_rental` + `2room_rental`)/total_dwelling_units) 
+  saveRDS(df_pct_1_2room_rental, file = here("data/derived_data/df_pct_1_2room_rental.rds"))
+}
+head(df_pct_1_2room_rental)
+```
+
+
+```{r}
+df_pct_1_2room_rental_sf <- df_pct_1_2room_rental %>% 
+              filter(grid_id %in% qualified_grids_inflow) %>% 
+              left_join(., grids, by = c("grid_id" = "grid_id")) %>% 
+              st_sf()
+
+spatial_viz(df_pct_1_2room_rental_sf, 
+            fill_var = "pct_1_2room_rental", 
+            legend_title = "1&2 Room rentals (%)", 
+            main_title = "(b) Spatial distribution of 1-Room and 2-Room rentals", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65, palette = "PuRd", 
+            style = "fixed",
+            breaks = c(0, 0.05, 0.1, 0.3, 0.5, 0.8))
+```
+
+```{r fig.height=5}
+violin_viz(df_pct_1_2room_rental_sf,
+           var = "pct_1_2room_rental",
+           labs.x = "", labs.y = "1-Room & 2-Room Rentals (%)", 
+           breaks = seq(0, 0.8, 0.1),
+           y.shift = 0.13, x.shift = 1.4, text.size = 4)
+```
+
+### Landuse: Percentage of industrial building
+
+```{r}
+cal_building_area <- function(index, building_sf){
+  # intersect with grids 
+  intersect_grid <- building_sf %>% 
+    filter(FEA_ID == index) %>% 
+    st_make_valid() %>% 
+    st_intersection(., grids) 
+  # intersect area in grids
+  intersect_grid %>% 
+    st_set_geometry(NULL) %>% 
+    dplyr::mutate(area_sqm = st_area(intersect_grid) %>% as.numeric()) %>% 
+    dplyr::select(FEA_ID, grid_id, area_sqm)
+}
+
+if(file.exists(here("data/derived_data/industrial_areas_grids.rds"))){
+  industrial_areas_grids <- readRDS(here("data/derived_data/industrial_areas_grids.rds"))
+}else{
+  #building type: I
+  industrial_sf <- df_building %>% 
+    filter(BLDG_TYPE_ == "I") %>% 
+    filter(DATA_TYPE_ == "extg") %>% # Existing building outline
+    st_transform(crs = 3414) %>% 
+    unite(ROAD_BLK, c("ROAD_NAME", "HOUSE_BLK_"), sep = " ") 
+
+  FEA_indexes <- industrial_sf$FEA_ID
+  # industrial building areas in grids 
+  industrial_areas_grids <- do.call(bind_rows, map(FEA_indexes, with_progress(function(x) cal_building_area(x, industrial_sf))))
+  # percentage of commercial areas in grids 
+  industrial_areas_grids <- industrial_areas_grids %>% 
+    group_by(grid_id) %>% 
+    dplyr::summarise(industrial_area_sqm = sum(area_sqm)) %>% 
+    mutate(grid_area = st_area(grids[1, ]) %>% as.numeric(),
+           pct_industrial_area = round(industrial_area_sqm/grid_area, 4)) 
+  saveRDS(industrial_areas_grids, file = here("data/derived_data/industrial_areas_grids.rds"))
+}
+
+head(industrial_areas_grids)
+```
+
+```{r}
+industrial_areas_grids_sf <- industrial_areas_grids %>% 
+              filter(grid_id %in% qualified_grids_inflow) %>% 
+              left_join(grids %>% filter(grid_id %in% qualified_grids_inflow), ., by = c("grid_id" = "grid_id")) %>% 
+              replace(., is.na(.), 0) %>% 
+              st_sf()
+
+spatial_viz(industrial_areas_grids_sf, 
+            fill_var = "pct_industrial_area", 
+            legend_title = "Industrial area (%)", 
+            main_title = "(c) Spatial distribution of industrial area", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65, palette = "PuRd", 
+            style = "fixed",
+            breaks = c(0, 0.05, 0.1, 0.15, 0.2, 0.25))
+```
+
+
+```{r fig.height=5}
+violin_viz(industrial_areas_grids_sf,
+           var = "pct_industrial_area",
+           labs.x = "", labs.y = "Industrial area (%)", 
+           breaks = seq(0, 0.25, 0.05), digits = 3,
+           y.shift = 0.04, x.shift = 1.4, text.size = 4)
+```
+
+### Landuse: Percentage of residential building
+
+```{r}
+if(file.exists(here("data/derived_data/residential_areas_grids.rds"))){
+  residential_areas_grids <- readRDS(here("data/derived_data/residential_areas_grids.rds"))
+}else{
+  #building type: C-Condominium, H-HDB Building, A-Apartment, E-Executive Condominium, R-Residential
+  residential_sf <- df_building %>% 
+    filter(BLDG_TYPE_ %in% c("C", "H", "A", "E", "R")) %>% 
+    filter(DATA_TYPE_ == "extg") %>% # Existing building outline
+    st_transform(crs = 3414) %>% 
+    unite(ROAD_BLK, c("ROAD_NAME", "HOUSE_BLK_"), sep = " ") 
+
+  FEA_indexes <- residential_sf$FEA_ID
+  # residential areas in grids 
+  residential_areas_grids <- do.call(bind_rows, map(FEA_indexes, with_progress(function(x) cal_building_area(x, residential_sf))))
+  # percentage of residential areas in grids 
+  residential_areas_grids <- residential_areas_grids %>% 
+    group_by(grid_id) %>% 
+    dplyr::summarise(residential_area_sqm = sum(area_sqm)) %>% 
+    mutate(grid_area = st_area(grids[1, ]) %>% as.numeric(),
+           pct_residential_area = round(residential_area_sqm/grid_area, 4)) 
+  saveRDS(residential_areas_grids, file = here("data/derived_data/residential_areas_grids.rds"))
+}
+
+head(residential_areas_grids)
+```
+
+
+```{r}
+residential_areas_grids_sf <- residential_areas_grids %>% 
+              filter(grid_id %in% qualified_grids_inflow) %>% 
+              left_join(., grids, by = c("grid_id" = "grid_id")) %>% 
+  st_sf()
+
+spatial_viz(residential_areas_grids_sf, 
+            fill_var = "pct_residential_area", 
+            legend_title = "Residential area (%)", 
+            main_title = "(d) Spatial distribution of residential area", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65,
+            palette = "PuRd")
+```
+
+
+```{r fig.height=5}
+violin_viz(residential_areas_grids_sf, 
+           var = "pct_residential_area", 
+           labs.x = "", labs.y = "Residential area (%)", 
+           breaks = seq(0, 0.32, 0.05),
+           y.shift = 0.06, x.shift = 1.55, text.size = 4)
+```
+
+### Distance to the nearest MRT station 
+
+```{r}
+cal_dist2nearestMRT <- function(grid_index, grids, mrt){
+  grid_centroid <- grids[grid_index, ] %>% st_centroid() 
+  # create 20k buffer 
+  grid_buffer <-  grid_centroid %>% st_buffer(20000) 
+  # get MRT stations within the buffer 
+  mrt_station_in_buffer <- grid_buffer %>% 
+    st_join(mrt, .) %>%
+    filter(!is.na(grid_id))
+  
+  # distance from grid centroid to MRT stations 
+  dist2MRT <- st_distance(st_geometry(grid_centroid), st_geometry(mrt_station_in_buffer), by_element = TRUE) %>% as.numeric()
+  
+  # get the nearest distance 
+  mrt_station_in_buffer %>% 
+    st_set_geometry(NULL) %>% 
+    mutate(dist2MRT_km = round(dist2MRT/1000, 4)) %>% 
+    arrange(dist2MRT_km) %>% 
+    slice(1)
+}
+
+if(file.exists(here("data/derived_data/dist2MRT_nearest.rds"))){
+  dist2MRT_nearest <- readRDS(here("data/derived_data/dist2MRT_nearest.rds"))
+}else{
+  # MRT station
+  mrt <- read_sf(here("data/raw_data/TrainStation_Jan2020/MRTLRTStnPtt.Shp"), quiet = T) %>% 
+    st_transform(crs = 3414)
+  dist2MRT_nearest <- do.call(bind_rows, map(grids$grid_id, with_progress(function(x) cal_dist2nearestMRT(x, grids, mrt))))
+  saveRDS(dist2MRT_nearest, file = here("data/derived_data/dist2MRT_nearest.rds"))
+}
+
+head(dist2MRT_nearest)
+```
+
+
+```{r}
+dist2MRT_nearest_sf <- dist2MRT_nearest %>% 
+              filter(grid_id %in% qualified_grids_inflow) %>% 
+              left_join(., grids, by = c("grid_id" = "grid_id")) %>% 
+  st_sf()
+
+spatial_viz(dist2MRT_nearest_sf, 
+            fill_var = "dist2MRT_km", 
+            legend_title = "Distance (km)", 
+            main_title = "(e) Spatial distribution of distance to the nearest MRT station", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65,
+            palette = "PuRd")
+```
+
+
+```{r fig.height=5}
+violin_viz(dist2MRT_nearest_sf, 
+           var = "dist2MRT_km", 
+           labs.x = "", labs.y = "Distance (km)", 
+           breaks = seq(0, 2.5, 0.5),
+           y.shift = 0.5, x.shift = 1.4, text.size = 4)
+```
+
+### Distance from grid to 'center' grid 1232 - City Hall
+
+```{r}
+center_grid <- grid_centroids %>% filter(grid_id == 1232)
+dist2_center_grid <- grid_centroids %>% 
+  mutate(dist_grid2center = st_distance(., center_grid) %>% as.numeric(),
+         dist_grid2center_km = dist_grid2center/1000) %>% 
+  st_set_geometry(NULL)
+head(dist2_center_grid)
+```
+
+
+```{r}
+dist2_center_grid_sf <- dist2_center_grid %>% 
+              filter(grid_id %in% qualified_grids_inflow) %>% 
+              left_join(., grids, by = c("grid_id" = "grid_id")) %>% st_sf()
+
+spatial_viz(dist2_center_grid_sf, 
+            fill_var = "dist_grid2center_km", 
+            legend_title = "Distance (km)", 
+            main_title = "(f) Spatial distribution of distance to the central location", 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65,
+            palette = "PuRd")
+```
+
+
+```{r fig.height=5}
+violin_viz(dist2_center_grid_sf, 
+           var = "dist_grid2center_km", 
+           labs.x = "", labs.y = "Distance (km)", 
+           breaks = seq(0, 20, 5),
+           y.shift = 5, x.shift = 1.55, text.size = 4)
+```
+
+## Dependent variables
+### Travel distance
+
+```{r}
+# visitors travel distance 
+mean_dist_inflow <- dist_inflow %>% 
+  group_by(grid_id, u_id) %>% 
+  dplyr::summarise(mean_dist_user = mean(dist_hm2grid_km)) %>% 
+  group_by(grid_id) %>% 
+  dplyr::summarise(mean_dist_km = mean(mean_dist_user)) %>% 
+  mutate(user_type = "visitor") 
+
+# locals travel distance 
+mean_dist_outflow <- dist_outflow %>% 
+  group_by(home, u_id) %>% 
+  dplyr::summarise(mean_dist_user = mean(dist_hm2grid_km)) %>% 
+  group_by(home) %>% 
+  dplyr::summarise(mean_dist_km = mean(mean_dist_user)) %>% 
+  dplyr::rename(grid_id = home) %>% mutate(user_type = "local")
+```
+
+
+```{r fig.height=8}
+ggplot(bind_rows(mean_dist_inflow, mean_dist_outflow)) +
+  geom_density(aes(mean_dist_km, fill = user_type, color = user_type), alpha = 0.5) +
+  geom_vline(data = bind_rows(mean_dist_inflow, mean_dist_outflow) %>% group_by(user_type) %>% dplyr::summarise(mean = mean(mean_dist_km)), aes(xintercept = mean, color = user_type), size=1.5) +
+  theme_bw() +
+  theme(legend.position = c(0.9, 0.9)) +
+  labs(x = "Avg.distance (km)", y = "Density", fill = "User type", color = "User type")
+```
+
+
+### Mobility diversity
+
+```{r fig.height=8}
+combinded_div <- div_inflow %>%
+  st_set_geometry(NULL) %>%
+  mutate(div_type = "Inflow") %>%
+  bind_rows(.,
+            div_outflow %>%
+            st_set_geometry(NULL) %>%
+            mutate(div_type = "Outflow")) %>%
+  mutate(div_type = factor(div_type, levels = c("Outflow", "Inflow")))
+
+combinded_div_mean <- combinded_div %>%
+  group_by(div_type) %>%
+  dplyr::summarise(mean = mean(norm_div_shannon)) %>%
+  mutate(div_type = factor(div_type, levels = c("Outflow", "Inflow")))
+
+ggplot(combinded_div, aes(norm_div_shannon, color = div_type, fill = div_type)) +
+  geom_density(alpha = 0.5) +
+  geom_vline(data = combinded_div_mean, aes(xintercept = mean, color = div_type), size = 1.5) +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  labs(x = "Normalized diversity", y = "Density", title = "Density distribution of normalized diversity", fill = "Diversity type", color = "Diversity type") +
+  theme_bw() +
+  theme(legend.position = c(0.1, 0.9))
+```
+
+
+## Regression analysis
+
+### Inflow travel distance 
+
+```{r}
+## gather independent and dependent variables 
+reg_inflow_dist <- mean_resale %>% 
+  filter(grid_id %in% qualified_grids_inflow) %>% 
+  left_join(., mean_dist_inflow %>% dplyr::select(-user_type)) %>% 
+  left_join(., industrial_areas_grids %>% dplyr::select(grid_id, pct_industrial_area)) %>% 
+  left_join(., residential_areas_grids %>% dplyr::select(grid_id, pct_residential_area)) %>%
+  left_join(., dist2MRT_nearest %>% dplyr::select(grid_id, dist2MRT_km)) %>% 
+  left_join(., df_pct_1_2room_rental %>% dplyr::select(grid_id, pct_1_2room_rental)) %>% 
+  left_join(., dist2_center_grid %>% dplyr::select(grid_id, dist_grid2center_km)) %>% 
+  replace(., is.na(.), 0)
+head(reg_inflow_dist)
+```
+
+
+#### OLS
+
+Formula: `Inflow distance ~ HDB resale price + Percentage of 1 ROOM and 2 Room rentals + Percentage of industrial building + Percentage of residential building + Distance to the nearest MRT station  + Distance to the central grid)`
+
+```{r}
+ols_inflow_dist <- lm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km  + dist_grid2center_km, data = reg_inflow_dist)
+
+summary(ols_inflow_dist)
+
+spatial_viz(augment(ols_inflow_dist, data = reg_inflow_dist) %>% left_join(., grids) %>% st_as_sf(), 
+            fill_var = ".resid", palette = "RdBu",
+            legend_title = "Residual (OLS)", 
+            main_title = "(a) Residuals of average incoming distance (Moran I statistic: 0.78)", 
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+```
+
+
+
+#### Spatial Error Model (SEM)
+```{r}
+sf_reg_inflow_dist <- reg_inflow_dist %>% 
+  left_join(., grids) %>% 
+  st_as_sf() %>% 
+  st_transform(crs = 4326)
+
+dist_inflow_sp <- as(sf_reg_inflow_dist, 'Spatial')
+dist_inflow_neighbors <- poly2nb(dist_inflow_sp)
+summary(dist_inflow_neighbors)
+
+dist_inflow_weights <- nb2listw(dist_inflow_neighbors, style="W", zero.policy=TRUE)
+```
+
+
+```{r}
+moran.test(dist_inflow_sp$mean_dist_km, dist_inflow_weights)
+```
+
+
+```{r}
+sem_inflow_dist <- spatialreg::errorsarlm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + pct_industrial_area + dist2MRT_km + dist_grid2center_km, data =  reg_inflow_dist, listw = dist_inflow_weights)
+ 
+summary(sem_inflow_dist)
+sf_reg_inflow_dist$resid_error <- residuals(sem_inflow_dist)
+
+spatial_viz(sf_reg_inflow_dist,
+            fill_var = "resid_error",
+            legend_title = "Residual (SEM)", palette = "RdBu",
+            main_title = "(a) Residuals of average incoming distance (Moran I statistic: - 0.09)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_inflow_dist$resid_error, dist_inflow_weights)
+```
+
+
+#### Spatial Lag Model (SLM)
+```{r}
+slm_inflow_dist <- spatialreg::lagsarlm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data =  reg_inflow_dist, listw = dist_inflow_weights)
+summary(slm_inflow_dist)
+impacts(slm_inflow_dist, listw = dist_inflow_weights)
+
+sf_reg_inflow_dist$resid_lagsarlm <- residuals(slm_inflow_dist)
+spatial_viz(sf_reg_inflow_dist,
+            fill_var = "resid_lagsarlm",
+            legend_title = "Residual (SLM)", 
+            palette = "RdBu",
+            main_title = "(a) Residuals of average incoming  distance (Moran I statistic: - 0.08)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_inflow_dist$resid_lagsarlm, dist_inflow_weights)
+```
+
+
+
+```{r}
+# compare three models
+AIC(ols_inflow_dist, slm_inflow_dist, sem_inflow_dist)
+```
+
+
+
+### Outflow travel distance 
+
+```{r}
+reg_outflow_dist <- mean_resale %>% 
+  filter(grid_id %in% qualified_grids_outflow) %>% 
+  left_join(., mean_dist_inflow %>% dplyr::select(-user_type)) %>% 
+  left_join(., industrial_areas_grids %>% dplyr::select(grid_id, pct_industrial_area)) %>% 
+  left_join(., residential_areas_grids %>% dplyr::select(grid_id, pct_residential_area)) %>%
+  left_join(., dist2MRT_nearest %>% dplyr::select(grid_id, dist2MRT_km)) %>% 
+  # left_join(., pop_grids_2016) %>% 
+  left_join(., df_pct_1_2room_rental %>% dplyr::select(grid_id, pct_1_2room_rental)) %>% 
+  left_join(., dist2_center_grid %>% dplyr::select(grid_id, dist_grid2center_km)) %>% 
+  replace(., is.na(.), 0) 
+head(reg_outflow_dist)
+```
+
+
+#### OLS
+
+Formula: `Outflow distance ~ HDB resale price + Percentage of 1 ROOM and 2 Room rentals + Percentage of industrial building + Percentage of residential building + Distance to the nearest MRT station + Distance to the central grid)`
+
+```{r}
+ols_outflow_dist <- lm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data = reg_outflow_dist)
+
+summary(ols_outflow_dist)
+
+spatial_viz(augment(ols_outflow_dist, data = reg_outflow_dist) %>% left_join(., grids) %>% st_as_sf(), 
+            fill_var = ".resid", palette = "RdBu",
+            legend_title = "Residual (OLS)", 
+            main_title = "(b) Residuals of average outgoing distance (Moran I statistic: 0.79) ",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+```
+
+
+#### Spatial Error Model (SEM)
+```{r}
+sf_reg_outflow_dist <- reg_outflow_dist %>% 
+  left_join(., grids) %>% 
+  st_as_sf() %>% 
+  st_transform(crs = 4326)
+
+dist_outflow_sp <- as(sf_reg_outflow_dist, 'Spatial')
+dist_outflow_neighbors <- poly2nb(dist_outflow_sp)
+summary(dist_outflow_neighbors)
+dist_outflow_weights <- nb2listw(dist_outflow_neighbors, style="W", zero.policy=TRUE)
+```
+
+
+```{r}
+moran.test(dist_outflow_sp$mean_dist_km, dist_outflow_weights)
+```
+
+```{r}
+sem_outflow_dist <- spatialreg::errorsarlm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data =  reg_outflow_dist, listw = dist_outflow_weights)
+ 
+summary(sem_outflow_dist)
+
+sf_reg_outflow_dist$resid_error <- residuals(sem_outflow_dist)
+
+spatial_viz(sf_reg_outflow_dist,
+            fill_var = "resid_error",
+            legend_title = "Residual (SEM)", palette = "RdBu",
+            main_title = "(b) Residuals of average outgoing distance (Moran I statistic: -0.09)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_outflow_dist$resid_error, dist_outflow_weights)
+```
+
+#### Spatial Lag Model (SLM)
+```{r}
+slm_outflow_dist <- spatialreg::lagsarlm(mean_dist_km ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + dist2MRT_km +  dist_grid2center_km, data =  reg_outflow_dist, listw = dist_outflow_weights)
+summary(slm_outflow_dist)
+impacts(slm_outflow_dist, listw = dist_outflow_weights)
+
+sf_reg_outflow_dist$resid_lagsarlm <- residuals(slm_outflow_dist)
+spatial_viz(sf_reg_outflow_dist,
+            fill_var = "resid_lagsarlm",
+            legend_title = "Residual (SLM)", palette = "RdBu",
+            main_title = "(b) Residuals of average outgoing distance (Moran I statistic: -0.08)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_outflow_dist$resid_lagsarlm, dist_outflow_weights)
+```
+
+```{r}
+# compare three models
+AIC(ols_outflow_dist, slm_outflow_dist, sem_outflow_dist)
+```
+
+
+
+### Inflow diversity
+```{r}
+reg_inflow_div <- mean_resale %>% 
+  filter(grid_id %in% qualified_grids_inflow) %>% 
+  left_join(., div_inflow %>% st_set_geometry(NULL) %>% dplyr::select(grid_id, norm_div_shannon)) %>% 
+  left_join(., industrial_areas_grids %>% dplyr::select(grid_id, pct_industrial_area)) %>% 
+  left_join(., residential_areas_grids %>% dplyr::select(grid_id, pct_residential_area)) %>% 
+  left_join(., dist2MRT_nearest %>% dplyr::select(grid_id, dist2MRT_km)) %>% 
+  left_join(., df_pct_1_2room_rental %>% dplyr::select(grid_id, pct_1_2room_rental)) %>% 
+  left_join(., dist2_center_grid %>% dplyr::select(grid_id, dist_grid2center_km)) %>%
+  replace(., is.na(.), 0)
+
+head(reg_inflow_div)
+```
+
+#### OLS 
+
+```{r}
+ols_inflow_div <- lm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data = reg_inflow_div)
+
+summary(ols_inflow_div)
+
+spatial_viz(augment(ols_inflow_div, data = reg_inflow_div) %>% left_join(., grids) %>% st_as_sf(), 
+            fill_var = ".resid", palette = "RdBu",
+            legend_title = "Residual (OLS)", 
+            main_title = "(c) Residuals of inflow diversity (Moran I statistic: 0.69)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+```
+
+
+#### Spatial Error (SEM) Models
+
+```{r}
+sf_reg_inflow_div <- reg_inflow_div %>% 
+  left_join(., grids) %>% 
+  st_as_sf() %>% 
+  st_transform(crs = 4326)
+
+div_inflow_sp <- as(sf_reg_inflow_div, 'Spatial')
+div_inflow_neighbors <- poly2nb(div_inflow_sp)
+summary(div_inflow_neighbors)
+div_inflow_weights <- nb2listw(div_inflow_neighbors, style="W", zero.policy=TRUE)
+```
+
+
+```{r}
+moran.test(div_inflow_sp$norm_div_shannon, div_inflow_weights)
+```
+
+```{r}
+sem_inflow_div <- spatialreg::errorsarlm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data =  reg_inflow_div, listw = div_inflow_weights)
+summary(sem_inflow_div)
+
+sf_reg_inflow_div$resid_error <- residuals(sem_inflow_div)
+spatial_viz(sf_reg_inflow_div,
+            fill_var = "resid_error",
+            legend_title = "Residual (SEM)", palette = "RdBu",
+            main_title = "(c) Residuals of inflow diversity (Moran I statistic: -0.05)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_inflow_div$resid_error, div_inflow_weights)
+```
+
+#### Spatial Lag Models (SLM):
+```{r}
+slm_inflow_div <- spatialreg::lagsarlm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km +dist_grid2center_km, data =  reg_inflow_div, listw = div_inflow_weights)
+summary(slm_inflow_div)
+impacts(slm_inflow_div, listw = div_inflow_weights)
+
+sf_reg_inflow_div$resid_lagsarlm <- residuals(slm_inflow_div)
+
+spatial_viz(sf_reg_inflow_div,
+            fill_var = "resid_lagsarlm",
+            legend_title = "Residual (SLM)", palette = "RdBu",
+            main_title = "(c) Residuals of inflow diversity (Moran I statistic: -0.03)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_inflow_div$resid_lagsarlm, div_inflow_weights)
+```
+
+
+```{r}
+AIC(ols_inflow_div, slm_inflow_div, sem_inflow_div)
+```
+
+
+
+### Outflow diversity 
+
+```{r}
+reg_outflow_div <- mean_resale %>% 
+  filter(grid_id %in% qualified_grids_outflow) %>% 
+  left_join(., div_outflow %>% st_set_geometry(NULL) %>% dplyr::select(grid_id, norm_div_shannon)) %>% 
+  left_join(., industrial_areas_grids %>% dplyr::select(grid_id, pct_industrial_area)) %>% 
+  left_join(., residential_areas_grids %>% dplyr::select(grid_id, pct_residential_area)) %>% 
+  left_join(., dist2MRT_nearest %>% dplyr::select(grid_id, dist2MRT_km)) %>% 
+  left_join(., df_pct_1_2room_rental %>% dplyr::select(grid_id, pct_1_2room_rental)) %>% 
+  left_join(., dist2_center_grid %>% dplyr::select(grid_id, dist_grid2center_km)) %>%
+  replace(., is.na(.), 0) 
+head(reg_inflow_div)
+```
+
+#### OLS 
+
+```{r}
+ols_outflow_div <- lm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental + pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data = reg_outflow_div)
+summary(ols_outflow_div)
+
+spatial_viz(augment(ols_outflow_div, data = reg_outflow_div) %>% left_join(., grids) %>% st_as_sf(), 
+            fill_var = ".resid", palette = "RdBu",
+            legend_title = "Residual (OLS)", 
+            main_title = "(d) Residuals of outflow diversity (Moran I statistic: 0.83)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+```
+
+
+```{r}
+sf_reg_outflow_div <- reg_outflow_div %>% 
+  left_join(., grids) %>% 
+  st_as_sf() %>% 
+  st_transform(crs = 4326)
+
+div_outflow_sp <- as(sf_reg_outflow_div, 'Spatial')
+div_outflow_neighbors <- poly2nb(div_outflow_sp)
+summary(div_outflow_neighbors)
+div_outflow_weights <- nb2listw(div_outflow_neighbors, style="W", zero.policy=TRUE)
+```
+
+
+```{r}
+moran.test(div_outflow_sp$norm_div_shannon, div_outflow_weights)
+```
+
+
+#### Spatial Error (SEM) Models
+```{r}
+sem_outflow_div <- spatialreg::errorsarlm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data =  reg_outflow_div, listw = div_outflow_weights)
+summary(sem_outflow_div)
+
+sf_reg_outflow_div$resid_error <- residuals(sem_outflow_div)
+spatial_viz(sf_reg_outflow_div,
+            fill_var = "resid_error",
+            legend_title = "Residual (SEM)", palette = "RdBu",
+            main_title = "(d) Residuals of outflow diversity (Moran I statistic: -0.08)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_outflow_div$resid_error, div_outflow_weights)
+```
+
+
+#### Spatial Lag Models (SLM):
+```{r}
+slm_outflow_div <- spatialreg::lagsarlm(norm_div_shannon ~ mean_resale_price_sqm + pct_1_2room_rental +  pct_industrial_area + pct_residential_area + dist2MRT_km + dist_grid2center_km, data =  reg_outflow_div, listw = div_outflow_weights)
+summary(slm_outflow_div)
+impacts(slm_outflow_div, listw = div_outflow_weights)
+
+sf_reg_outflow_div$resid_lagsarlm <- residuals(slm_outflow_div)
+spatial_viz(sf_reg_outflow_div,
+            fill_var = "resid_lagsarlm",
+            legend_title = "Residual (SLM)", palette = "-RdBu",
+            main_title = "(d) Residuals of outflow diversity (Moran I statistic: -0.06)",
+            main.title_size = 1.6,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)
+moran.test(sf_reg_outflow_div$resid_lagsarlm, div_outflow_weights)
+```
+
+```{r}
+AIC(ols_outflow_div, slm_outflow_div, sem_outflow_div)
+```
