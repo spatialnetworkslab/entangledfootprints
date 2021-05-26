@@ -1,7 +1,7 @@
 name: "entangledfootprints"
 output_dir: ../docs
 navbar:
-  title: "entangledfootprints"
+  title: "Entangled footprints"
   left:
   - text: Home
     href: index.html
