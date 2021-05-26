@@ -8,4 +8,22 @@ editor_options:
   chunk_output_type: console
 ---
 
-Welcome to my research website.
+<style>
+body {text-align: justify}
+</style>
+
+## Entangled Footprints: Understanding Urban Neighbourhoods by Measuring Variability of Distance, Diversity, and Direction of Flows in Singapore
+
+### Contents
+
+- [Chapter 01: Design base map](001-design-base-map.html)
+- [Chapter 02: Dataset infromation](002-dataset-information.html)
+- [Chapter 03: Create hexagonal grid cells](003-create-hexagonal-grids.html)
+- [Chapter 04: Identify home locations for users](004-identify-home-locations.html)
+- [Chapter 05: Distinguish locals and visitors](005-distinct-locals-and-visitors.html)
+- [Chapter 06: Calculate distance of flows](006-calculate-distance.html)
+- [Chapter 07: Define sectors](007-define-sectors.html)
+- [Chapter 08: Calculate divesity of flows](008-calculate-diversity.html)
+- [Chapter 09: Calculate direction of flows](009-draw-flow-maps.html)
+- [Chapter 10: Regression analysis](010-regression-analysis.html)
+
