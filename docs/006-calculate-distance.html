@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Inflow and outflow distance</title>
+
+<script src="site_libs/header-attrs-2.7/header-attrs.js"></script>
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.tab('show');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Entangled footprints</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+<li>
+  <a href="license.html">License</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Inflow and outflow distance</h1>
+<h4 class="date">last compiled date: 25 May, 2021</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span> workflowr <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> </a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2021-05-25
+</p>
+<p>
+<strong>Checks:</strong> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 7 <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> 0
+</p>
+<p>
+<strong>Knit directory:</strong> <code>entangledfootprints/</code> <span class="glyphicon glyphicon-question-sign" aria-hidden="true" title="This is the local directory in which the code in this file was executed."> </span>
+</p>
+<p>
+This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a> analysis was created with <a
+  href="https://github.com/jdblischak/workflowr">workflowr</a> (version 1.6.2). The <em>Checks</em> tab describes the reproducibility checks that were applied when the results were created. The <em>Past versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date </a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git repository, you know the exact version of the code that produced these results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the global environment can affect the analysis in your R Markdown file in unknown ways. For reproduciblity it’s best to always run the code in an empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20210524code"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Seed:</strong> <code>set.seed(20210524)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20210524code" class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20210524)</code> was run prior to running the code in the R Markdown file. Setting a seed ensures that any results that rely on randomness, e.g. subsampling or permutations, are reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Session information:</strong> recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be confident that you successfully produced the results during this run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomspatialnetworkslabentangledfootprintstree17299e2e4d1d9910d707765a38c2be80883fc7actargetblank17299e2a"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> <a href="https://github.com/spatialnetworkslab/entangledfootprints/tree/17299e2e4d1d9910d707765a38c2be80883fc7ac" target="_blank">17299e2</a> </a>
+</p>
+</div>
+<div id="strongRepositoryversionstrongahrefhttpsgithubcomspatialnetworkslabentangledfootprintstree17299e2e4d1d9910d707765a38c2be80883fc7actargetblank17299e2a" class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development and connecting the code version to the results is critical for reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version <a href="https://github.com/spatialnetworkslab/entangledfootprints/tree/17299e2e4d1d9910d707765a38c2be80883fc7ac" target="_blank">17299e2</a>. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for the analysis have been committed to Git prior to generating the results (you can use <code>wflow_publish</code> or <code>wflow_git_commit</code>). workflowr only checks the R Markdown file, but you know if there are other scripts or data files that it depends on. Below is the status of the Git repository when the results were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .DS_Store
+    Ignored:    .Rproj.user/
+    Ignored:    data/.DS_Store
+
+Untracked files:
+    Untracked:  analysis/bibliography.bib
+    Untracked:  code/flow_mapping.R
+    Untracked:  code/viz.R
+    Untracked:  data/data/
+    Untracked:  data/derived_data/
+    Untracked:  data/photos/
+    Untracked:  data/raw_data/
+
+Unstaged changes:
+    Modified:   README.md
+    Modified:   analysis/_site.yml
+    Modified:   analysis/index.Rmd
+    Deleted:    code/README.md
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not included in this status report because it is ok for generated content to have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+
+<p>
+These are the previous versions of the repository in which changes were made to the R Markdown (<code>analysis/006-calculate-distance.Rmd</code>) and HTML (<code>docs/006-calculate-distance.html</code>) files. If you’ve configured a remote Git repository (see <code>?wflow_git_remote</code>), click on the hyperlinks in the table below to view the files as they were in that past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/spatialnetworkslab/entangledfootprints/blob/17299e2e4d1d9910d707765a38c2be80883fc7ac/analysis/006-calculate-distance.Rmd" target="_blank">17299e2</a>
+</td>
+<td>
+chenqingqing
+</td>
+<td>
+2021-05-25
+</td>
+<td>
+feat: calculate travel distance
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<style>
+body {text-align: justify}
+</style>
+<p>We calculate the spatial distance from the centroid of a home location to the centroid of each visited location. The mean distance across all users in a location is used for the visualizations and the spatial regression modeling in the paper.</p>
+<div id="load-data" class="section level2">
+<h2>Load data</h2>
+<pre class="r"><code># full grids 
+grids &lt;- read_sf(here(&quot;data/derived_data/spatial_hex_grid.shp&quot;), quiet = T) %&gt;%
+  st_transform(crs = 3414)
+
+# grid centroids 
+grid_centroids &lt;- grids %&gt;% st_centroid()
+
+# identified home users 
+df_hms &lt;- read_csv(here(&quot;data/derived_data/identified_hms.csv&quot;))
+
+# sg tweets 
+df_tweets &lt;- readRDS(here(&quot;data/derived_data/deidentified_sg_tweets_updated.rds&quot;))
+## sg tweets sent by users with identified home locations 
+df_hm_tweets &lt;- df_tweets %&gt;% filter(u_id %in% df_hms$u_id)
+
+# distinct users 
+distinct_users &lt;- readRDS(here(&quot;data/derived_data/distinct_users.rds&quot;))</code></pre>
+</div>
+<div id="distance-calculation" class="section level2">
+<h2>Distance calculation</h2>
+<pre class="r"><code># function for distance calculation 
+cal_distance &lt;- function(distinct_users, df_hm_tweets, type, grids, grid_index){
+  # step1: get visitors/locals in the input grid 
+  if(type == &quot;inflow&quot;){
+    # visitors
+    users_in_grids &lt;- distinct_users %&gt;% 
+      filter(grid_id == grid_index) %&gt;% # all users in the input grid 
+      filter(type == &quot;visitor&quot;) 
+  } else if(type == &quot;outflow&quot;){
+    # locals
+    users_in_grids &lt;- distinct_users %&gt;% 
+      filter(grid_id == grid_index) %&gt;%  # all users in the input grid 
+      filter(type == &quot;local&quot;) 
+  }
+  
+  # step2: remove grids with fewer than 5 visitors/locals
+  if(n_distinct(users_in_grids$u_id) &lt; 5){
+    message(&quot;Less than 5 users in the grid, remove this grid!&quot;)
+    output &lt;- tibble()
+  } else{
+    # step3: get tweets for visitors/locals 
+    if(type == &quot;inflow&quot;){
+      df_tweets &lt;- df_hm_tweets %&gt;% 
+          filter(grid_id == grid_index) %&gt;% # filter all tweets in the target grid 
+          left_join(users_in_grids, .) # get tweets send by visitors
+    }else if(type == &quot;outflow&quot;){
+      df_tweets &lt;- df_hm_tweets %&gt;% 
+        filter(u_id %in% users_in_grids$u_id) %&gt;% # tweets sent by locals 
+        filter(grid_id != grid_index) %&gt;%  # remove tweets sent at home place
+        mutate(home = grid_index) # add home location
+    }
+    # step 4: calculate distance 
+     # geometry of home grid 
+     home_geometry &lt;- df_tweets %&gt;% 
+       left_join(., grids, by = c(&quot;home&quot; = &quot;grid_id&quot;)) %&gt;% 
+       st_as_sf() %&gt;% 
+       st_centroid() %&gt;% 
+       st_geometry()
+     # geometry of outside home grids
+     grid_geometry &lt;- df_tweets %&gt;% 
+       left_join(., grids, by = &quot;grid_id&quot;) %&gt;% 
+       st_as_sf() %&gt;% 
+       st_centroid() %&gt;% 
+       st_geometry()
+     # calculate distance 
+     output &lt;- df_tweets %&gt;% 
+       mutate(dist_hm2grid = st_distance(home_geometry, grid_geometry, by_element = TRUE) %&gt;% as.numeric(), 
+              dist_hm2grid_km = round(dist_hm2grid/1000, 4))
+  }
+  return(output)
+} </code></pre>
+<div id="inflow-distance" class="section level3">
+<h3>Inflow distance</h3>
+<p>The inflow distance is saved under <code>data/derived_data/</code> directory.</p>
+<pre class="r"><code># inflow distance 
+if(file.exists(here(&quot;data/derived_data/dist_visitor_points.rds&quot;))){
+  dist_visitor_points &lt;- readRDS(here(&quot;data/derived_data/dist_visitor_points.rds&quot;))
+}else{
+  input_grids &lt;- unique(distinct_users$grid_id) 
+  dist_visitor_points &lt;- do.call(bind_rows, map(input_grids, with_progress(function(x) cal_distance(distinct_users, df_hm_tweets, type = &quot;inflow&quot;, grids, x))))
+  dist_visitor_points &lt;- dist_visitor_points %&gt;% 
+    dplyr::select(grid_id, u_id, home, created_at, dist_hm2grid, dist_hm2grid_km)
+  saveRDS(dist_visitor_points, here(&quot;data/derived_data/dist_visitor_points.rds&quot;))
+}</code></pre>
+</div>
+<div id="outflow-distance" class="section level3">
+<h3>Outflow distance</h3>
+<p>The outflow distance is saved under <code>data/derived_data/</code> directory.</p>
+<pre class="r"><code># outflow distance 
+if(file.exists(here(&quot;data/derived_data/dist_local_points.rds&quot;))){
+  dist_local_points &lt;- readRDS(here(&quot;data/derived_data/dist_local_points.rds&quot;))
+}else{
+  input_grids &lt;- unique(distinct_users$grid_id)
+  dist_local_points &lt;- do.call(bind_rows, map(input_grids, with_progress(function(x) cal_distance(distinct_users, df_hm_tweets, type = &quot;outflow&quot;, grids, x)))) 
+  dist_local_points &lt;- dist_local_points %&gt;% 
+    dplyr::select(home, u_id, grid_id, created_at, dist_hm2grid, dist_hm2grid_km)
+  saveRDS(dist_local_points, here(&quot;data/derived_data/dist_local_points.rds&quot;))
+}</code></pre>
+</div>
+</div>
+<div id="distance-visualizaiton" class="section level2">
+<h2>Distance visualizaiton</h2>
+<div id="inflow-distance-spatial-distribution" class="section level3">
+<h3>Inflow distance: spatial distribution</h3>
+<pre class="r"><code>mean_sd_inflow_distance &lt;- dist_visitor_points %&gt;% 
+  group_by(grid_id, u_id) %&gt;% 
+  dplyr::summarise(mean_dist_user = mean(dist_hm2grid_km)) %&gt;% 
+  group_by(grid_id) %&gt;% 
+  dplyr::summarise(mean_dist_grid = mean(mean_dist_user, na.rm = T) %&gt;% round(., 2),
+                   sd_dist_grid = sd(mean_dist_user, na.rm = T) %&gt;% round(., 2)) %&gt;% 
+  left_join(., grids) %&gt;% 
+  st_as_sf()
+
+spatial_viz(mean_sd_inflow_distance,
+            fill_var = &quot;mean_dist_grid&quot;,
+            legend_title = &quot;Avg.distance (km)&quot;,
+            main_title = &quot;(a) Distance of Flows: average incoming distance&quot;,
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-5-1.png" width="960" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;#FEEBCF&quot; &quot;#FDD099&quot; &quot;#FC9F6A&quot; &quot;#EE6246&quot; &quot;#C81C12&quot;</code></pre>
+<pre class="r"><code>spatial_viz(mean_sd_inflow_distance, fill_var = &quot;sd_dist_grid&quot;, 
+            legend_title = &quot;S.D.distance (km)&quot;, 
+            main_title = &quot;(b) Distance of Flows: S.D. of incoming distance&quot;, 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-5-2.png" width="960" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;#FEEBCF&quot; &quot;#FDD099&quot; &quot;#FC9F6A&quot; &quot;#EE6246&quot; &quot;#C81C12&quot;</code></pre>
+</div>
+<div id="inflow-distance-violin-plot" class="section level3">
+<h3>Inflow distance: violin plot</h3>
+<pre class="r"><code>violin_viz(mean_sd_inflow_distance, var = &quot;mean_dist_grid&quot;, 
+           labs.x = &quot;&quot;, labs.y = &quot;Avg.distance (km)&quot;, breaks = seq(0, 30, 2), 
+           y.shift = 3.5, x.shift = 1.4, text.size = 4)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-6-1.png" width="960" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>violin_viz(mean_sd_inflow_distance, var = &quot;sd_dist_grid&quot;, 
+           labs.x = &quot;&quot;, labs.y = &quot;Avg.distance (km)&quot;, breaks = seq(0, 12, 2),
+           y.shift = 1.8, x.shift = 1.4, text.size = 4)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-6-2.png" width="960" style="display: block; margin: auto;" /></p>
+</div>
+<div id="outflow-distance-spatial-distribution" class="section level3">
+<h3>Outflow distance: spatial distribution</h3>
+<pre class="r"><code>mean_sd_outflow_distance &lt;- dist_local_points %&gt;% 
+  group_by(home, u_id) %&gt;% 
+  dplyr::summarise(mean_dist_user = mean(dist_hm2grid_km)) %&gt;% 
+  group_by(home) %&gt;% 
+  dplyr::summarise(mean_dist_grid = mean(mean_dist_user) %&gt;% round(., 2),
+                   sd_dist_grid = sd(mean_dist_user) %&gt;% round(., 2)) %&gt;% 
+  left_join(., grids, by = c(&quot;home&quot; = &quot;grid_id&quot;)) %&gt;% 
+  st_as_sf()
+
+spatial_viz(mean_sd_outflow_distance, fill_var = &quot;mean_dist_grid&quot;, 
+            legend_title = &quot;Avg.distance (km)&quot;, 
+            main_title = &quot;(c) Distance of Flows: average outgoing distance&quot;, 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65, palette = &quot;Purples&quot;)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-7-1.png" width="960" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;#F1EFF6&quot; &quot;#D5D5E8&quot; &quot;#AAA8D0&quot; &quot;#7F7BB9&quot; &quot;#61409B&quot;</code></pre>
+<pre class="r"><code>spatial_viz(mean_sd_outflow_distance, fill_var = &quot;sd_dist_grid&quot;, 
+            legend_title = &quot;S.D.distance (km)&quot;, 
+            main_title = &quot;(d) Distance of Flows: S.D. of outgoing distance&quot;, 
+            main.title_size = 1.4,
+            legend.hist_height = 0.25, legend.hist_width = 0.5,
+            legend_width = 0.4, legend.hist_size = 0.5,
+            legend.title_size = 1.2, legend.text_size = 0.65, palette = &quot;Purples&quot;)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-7-2.png" width="960" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;#F1EFF6&quot; &quot;#D5D5E8&quot; &quot;#AAA8D0&quot; &quot;#7F7BB9&quot; &quot;#61409B&quot;</code></pre>
+</div>
+<div id="outflow-distance-violin-plot" class="section level3">
+<h3>Outflow distance: violin plot</h3>
+<pre class="r"><code>violin_viz(mean_sd_outflow_distance, var = &quot;mean_dist_grid&quot;,
+           labs.x = &quot;&quot;, labs.y = &quot;Avg.distance (km)&quot;, breaks = seq(0, 20, 2),
+           y.shift = 2, x.shift = 1.4, text.size = 4)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-8-1.png" width="960" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>violin_viz(mean_sd_outflow_distance, var = &quot;sd_dist_grid&quot;, 
+           labs.x = &quot;&quot;, labs.y = &quot;Avg.distance (km)&quot;, breaks = seq(0, 10, 2),
+           y.shift = 0.9, x.shift = 1.4, text.size = 4)</code></pre>
+<p><img src="figure/006-calculate-distance.Rmd/unnamed-chunk-8-2.png" width="960" style="display: block; margin: auto;" /></p>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span> Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.0.4 (2021-02-15)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] here_1.0.1         purrrogress_0.1.1  RColorBrewer_1.1-2 tmap_3.3-1        
+ [5] sf_0.9-7           forcats_0.5.1      stringr_1.4.0      dplyr_1.0.5       
+ [9] purrr_0.3.4        readr_1.4.0        tidyr_1.1.3        tibble_3.1.0      
+[13] ggplot2_3.3.3      tidyverse_1.3.0   
+
+loaded via a namespace (and not attached):
+ [1] fs_1.5.0             lubridate_1.7.10     httr_1.4.2          
+ [4] rprojroot_2.0.2      tools_4.0.4          backports_1.2.1     
+ [7] bslib_0.2.4          utf8_1.1.4           R6_2.5.0            
+[10] KernSmooth_2.23-18   DBI_1.1.1            colorspace_2.0-0    
+[13] raster_3.4-5         withr_2.4.1          sp_1.4-5            
+[16] tidyselect_1.1.0     leaflet_2.0.4.1      compiler_4.0.4      
+[19] git2r_0.28.0         leafem_0.1.3         cli_2.3.1           
+[22] rvest_0.3.6          testextra_0.1.0.9000 xml2_1.3.2          
+[25] sass_0.3.1           scales_1.1.1         classInt_0.4-3      
+[28] digest_0.6.27        rmarkdown_2.7        base64enc_0.1-3     
+[31] dichromat_2.0-0      pkgconfig_2.0.3      htmltools_0.5.1.1   
+[34] highr_0.8            dbplyr_2.1.0         htmlwidgets_1.5.3   
+[37] rlang_0.4.10         readxl_1.3.1         rstudioapi_0.13     
+[40] farver_2.1.0         jquerylib_0.1.3      generics_0.1.0      
+[43] jsonlite_1.7.2       crosstalk_1.1.1      magrittr_2.0.1      
+[46] Rcpp_1.0.6           munsell_0.5.0        fansi_0.4.2         
+[49] abind_1.4-5          lifecycle_1.0.0      stringi_1.5.3       
+[52] leafsync_0.1.0       whisker_0.4          yaml_2.2.1          
+[55] tmaptools_3.1-1      grid_4.0.4           parallel_4.0.4      
+[58] promises_1.2.0.1     crayon_1.4.1         lattice_0.20-41     
+[61] stars_0.5-1          haven_2.3.1          hms_1.0.0           
+[64] knitr_1.31           pillar_1.5.1         codetools_0.2-18    
+[67] reprex_1.0.0         XML_3.99-0.5         glue_1.4.2          
+[70] evaluate_0.14        modelr_0.1.8         vctrs_0.3.6         
+[73] png_0.1-7            httpuv_1.5.5         testthat_3.0.2      
+[76] pkgcond_0.1.0        cellranger_1.1.0     gtable_0.3.0        
+[79] postlogic_0.1.0.1    assertthat_0.2.1     xfun_0.21           
+[82] lwgeom_0.2-5         broom_0.7.5          e1071_1.7-4         
+[85] later_1.1.0.1        class_7.3-18         viridisLite_0.3.0   
+[88] workflowr_1.6.2      units_0.6-7          ellipsis_0.3.1      
+[91] parsetools_0.1.3    </code></pre>
+</div>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+http://docs.mathjax.org/en/latest/configuration.html.  This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("show" === "show");
+});
+</script>
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

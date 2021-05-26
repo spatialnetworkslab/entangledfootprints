@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Identifying home locations for users</title>
+
+<script src="site_libs/header-attrs-2.7/header-attrs.js"></script>
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<script src="site_libs/navigation-1.1/codefolding.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+<style type="text/css">
+/* for pandoc --citeproc since 2.11 */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.tab('show');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Entangled footprints</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+<li>
+  <a href="license.html">License</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">Identifying home locations for users</h1>
+<h4 class="date">last compiled date: 25 May, 2021</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span> workflowr <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> </a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2021-05-25
+</p>
+<p>
+<strong>Checks:</strong> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 7 <span class="glyphicon glyphicon-exclamation-sign text-danger" aria-hidden="true"></span> 0
+</p>
+<p>
+<strong>Knit directory:</strong> <code>entangledfootprints/</code> <span class="glyphicon glyphicon-question-sign" aria-hidden="true" title="This is the local directory in which the code in this file was executed."> </span>
+</p>
+<p>
+This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a> analysis was created with <a
+  href="https://github.com/jdblischak/workflowr">workflowr</a> (version 1.6.2). The <em>Checks</em> tab describes the reproducibility checks that were applied when the results were created. The <em>Past versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date </a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git repository, you know the exact version of the code that produced these results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the global environment can affect the analysis in your R Markdown file in unknown ways. For reproduciblity it’s best to always run the code in an empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20210524code"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Seed:</strong> <code>set.seed(20210524)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20210524code" class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20210524)</code> was run prior to running the code in the R Markdown file. Setting a seed ensures that any results that rely on randomness, e.g. subsampling or permutations, are reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Session information:</strong> recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be confident that you successfully produced the results during this run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongrelative"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>File paths:</strong> relative </a>
+</p>
+</div>
+<div id="strongFilepathsstrongrelative" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Using relative paths to the files within your workflowr project makes it easier to run your code on other machines.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomspatialnetworkslabentangledfootprintstreeedc3567c208bc03fa7034c1ce372ca4674fa0da1targetblankedc3567a"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> <a href="https://github.com/spatialnetworkslab/entangledfootprints/tree/edc3567c208bc03fa7034c1ce372ca4674fa0da1" target="_blank">edc3567</a> </a>
+</p>
+</div>
+<div id="strongRepositoryversionstrongahrefhttpsgithubcomspatialnetworkslabentangledfootprintstreeedc3567c208bc03fa7034c1ce372ca4674fa0da1targetblankedc3567a" class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development and connecting the code version to the results is critical for reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version <a href="https://github.com/spatialnetworkslab/entangledfootprints/tree/edc3567c208bc03fa7034c1ce372ca4674fa0da1" target="_blank">edc3567</a>. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for the analysis have been committed to Git prior to generating the results (you can use <code>wflow_publish</code> or <code>wflow_git_commit</code>). workflowr only checks the R Markdown file, but you know if there are other scripts or data files that it depends on. Below is the status of the Git repository when the results were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .DS_Store
+    Ignored:    .Rproj.user/
+    Ignored:    data/.DS_Store
+
+Untracked files:
+    Untracked:  analysis/bibliography.bib
+    Untracked:  data/data/
+    Untracked:  data/derived_data/
+    Untracked:  data/photos/
+    Untracked:  data/raw_data/
+
+Unstaged changes:
+    Modified:   README.md
+    Modified:   analysis/_site.yml
+    Modified:   analysis/index.Rmd
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not included in this status report because it is ok for generated content to have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+
+<p>
+These are the previous versions of the repository in which changes were made to the R Markdown (<code>analysis/004-identify-home-locations.Rmd</code>) and HTML (<code>docs/004-identify-home-locations.html</code>) files. If you’ve configured a remote Git repository (see <code>?wflow_git_remote</code>), click on the hyperlinks in the table below to view the files as they were in that past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/spatialnetworkslab/entangledfootprints/blob/edc3567c208bc03fa7034c1ce372ca4674fa0da1/analysis/004-identify-home-locations.Rmd" target="_blank">edc3567</a>
+</td>
+<td>
+chenqingqing
+</td>
+<td>
+2021-05-25
+</td>
+<td>
+feat: identify home locations
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<style>
+body {text-align: justify}
+</style>
+<p>To identify home locations for users from their spatio-temporal footprint, we use an ensemble approach proposed by Chen and Poorthuis <span class="citation">(2021)</span> in their paper named <a href="https://osf.io/preprints/socarxiv/k3jp2">“<em>Identifying Home Locations in Human Mobility Data: An Open-Source r Package for Comparison and Reproducibility</em>”</a>. The introduced open-source R package, <a href="https://github.com/spatialnetworkslab/homelocator">homelocator</a>, provides a consistent framework and interface for the adoption of different approaches to home location identification.</p>
+<p>First, we need to install and load the <code>homelocator</code> package with:</p>
+<pre class="r"><code>install_github(&quot;spatialnetworkslab/homelocator&quot;)
+library(homelocator)</code></pre>
+<div id="load-data" class="section level2">
+<h2>Load data</h2>
+<pre class="r"><code># grid cells 
+grids &lt;- st_read(here(&quot;data/derived_data/spatial_hex_grid.shp&quot;), quiet = T) %&gt;%
+  st_transform(crs = 3414)</code></pre>
+<pre class="r"><code># de-identified tweets 
+df &lt;- read_csv(here(&quot;data/raw_data/deidentified_sg_tweets.csv&quot;)) %&gt;% #load de-identified dataset
+  mutate(created_at = with_tz(created_at, tzone = &quot;Asia/Singapore&quot;)) # the tweets were sent in Singapore, so must convert the timezone to SGT, the default timezone is UTC! 
+df_counts &lt;- df %&gt;% 
+  group_by(u_id) %&gt;% 
+  nest() %&gt;% 
+  mutate(n_tweets = map_dbl(data, nrow), 
+         n_locs = map_dbl(data, function(x) n_distinct(x$grid_id)))
+df &lt;- df_counts %&gt;% 
+  filter(n_tweets &gt;= 10 &amp; n_locs &gt; 1) %&gt;% # remove users with less than 10 tweets or only tweet at a single place
+  unnest(data) %&gt;% 
+  dplyr::select(-c(n_tweets, n_locs)) %&gt;% 
+  ungroup()</code></pre>
+<p>The updated de-identified dataset is in <code>analysis/data/derived_data</code>.</p>
+<pre class="r"><code>saveRDS(df, file = here(&quot;data/derived_data/deidentified_sg_tweets_updated.rds&quot;))</code></pre>
+</div>
+<div id="identify-home-locations" class="section level2">
+<h2>Identify home locations</h2>
+<p>Finally, we apply the four built-in recipes from <code>homelocator</code> package on the de-identified data set and only assign home location for users if four algorithms agree.</p>
+<div id="recipe-apdm" class="section level3">
+<h3>Recipe: APDM</h3>
+<p>Recipe ‘APDM’ (Rein Ahas et al., 2010) calculates both the average and standard deviation timestamps in each location for each user.</p>
+<pre class="r"><code>#generate grid neighbors 
+st_queen &lt;- function(a, b = a) st_relate(a, b, pattern = &quot;F***T****&quot;)
+neighbors &lt;- st_queen(grids)
+
+#convert list to tibble
+list_to_tibble &lt;- function(index, neighbors){
+  tibble(grid_id = as.character(index)) %&gt;% 
+    mutate(neighbor = list(neighbors[[index]]))
+}
+df_neighbors &lt;- do.call(rbind, map(1:length(neighbors), function(x) list_to_tibble(x, neighbors)))
+
+#recipe: APDM
+hm_apdm &lt;- homelocator::identify_location(df, user = &quot;u_id&quot;, timestamp = &quot;created_at&quot;, location = &quot;grid_id&quot;, 
+                             tz = &quot;Asia/Singapore&quot;, keep_score = F, recipe = &quot;APDM&quot;)</code></pre>
+</div>
+<div id="recipe-freq" class="section level3">
+<h3>Recipe: FREQ</h3>
+<p>Recipe ‘FREQ’ simply selects the most frequently ‘visited’ location as users’ home locations.</p>
+<pre class="r"><code>hm_freq &lt;- homelocator::identify_location(df, user = &quot;u_id&quot;, timestamp = &quot;created_at&quot;, location = &quot;grid_id&quot;, 
+                             tz = &quot;Asia/Singapore&quot;, show_n_loc = 1, recipe = &quot;FREQ&quot;)</code></pre>
+</div>
+<div id="recipe-hmlc" class="section level3">
+<h3>Recipe: HMLC</h3>
+<p>Recipe ‘HMLC’ weighs data points across multiple time frames to ‘score’ potentially meaningful locations.</p>
+<pre class="r"><code>hm_hmlc &lt;- homelocator::identify_location(df, user = &quot;u_id&quot;, timestamp = &quot;created_at&quot;, location = &quot;grid_id&quot;, 
+                             tz = &quot;Asia/Singapore&quot;, show_n_loc = 1, keep_score = F, recipe = &quot;HMLC&quot;)</code></pre>
+</div>
+<div id="recipe-osna" class="section level3">
+<h3>Recipe: OSNA</h3>
+<p>Recipe ‘OSNA’ (Efstathiades et al., 2015), only considers data points sent on weekdays and divides a day into three time frames - ‘rest time,’ ‘leisure time’ and ‘active time.’ The algorithm finds the most ‘popular’ location during ‘rest’ and ‘leisure’ time as the home locations for users.</p>
+<pre class="r"><code>hm_osna &lt;- homelocator::identify_location(df, user = &quot;u_id&quot;, timestamp = &quot;created_at&quot;, location = &quot;grid_id&quot;, 
+                             tz = &quot;Asia/Singapore&quot;, show_n_loc = 1, recipe = &quot;OSNA&quot;)</code></pre>
+<p>The identified homes are in <code>data/derived_data</code>.</p>
+<pre class="r"><code>write_csv(hm_apdm, path = here(&quot;data/derived_data/hm_apdm.csv&quot;))
+write_csv(hm_freq, path = here(&quot;data/derived_data/hm_freq.csv&quot;))
+write_csv(hm_hmlc, path = here(&quot;data/derived_data/hm_hmlc.csv&quot;))
+write_csv(hm_osna, path = here(&quot;data/derived_data/hm_osna.csv&quot;))</code></pre>
+</div>
+<div id="assign-agreed-home-locations-for-users" class="section level3">
+<h3>Assign agreed home locations for users</h3>
+<pre class="r"><code>## find users with identified home locations that all four algorithms agree
+qualified_uses &lt;- hm_full %&gt;% 
+      group_by(u_id) %&gt;%
+      dplyr::summarise(method = dplyr::n_distinct(name),
+                       homes = dplyr::n_distinct(home)) %&gt;%
+      filter(method == 4) %&gt;% ## all four algorithms can find the home for the user 
+      filter(homes == 1) ## all four algorithms find the SAME home for the user 
+
+identified_hms &lt;- hm_full %&gt;% 
+  filter(u_id %in% qualified_uses$u_id) %&gt;% 
+  dplyr::select(-name) %&gt;% 
+  distinct(u_id, home, .keep_all = TRUE) </code></pre>
+<p>The identified home locations are saved under <code>data/derived_data/</code> directory.</p>
+<pre class="r"><code>write_csv(identified_hms, path = here(&quot;data/derived_data/identified_hms.csv&quot;))</code></pre>
+</div>
+</div>
+<div id="visualize-identified-home-locations" class="section level2">
+<h2>Visualize identified home locations</h2>
+<pre class="r"><code>identified_hms &lt;- read_csv(here(&quot;data/derived_data/identified_hms.csv&quot;)) %&gt;% 
+  group_by(home) %&gt;% 
+  dplyr::summarise(n_users_home = n_distinct(u_id)) %&gt;% 
+  left_join(., grids, by = c(&quot;home&quot; = &quot;grid_id&quot;)) %&gt;% 
+  replace(., is.na(.), 0) %&gt;% 
+  st_as_sf() </code></pre>
+<pre class="r"><code>sg_boundary &lt;- readRDS(here(&quot;data/derived_data/sg_boundary.rds&quot;))
+streets &lt;- readRDS(here(&quot;data/derived_data/streets.rds&quot;))
+area_hatched &lt;- readRDS(here(&quot;data/derived_data/area_hatched.rds&quot;))
+area_centers &lt;- readRDS(here(&quot;data/derived_data/area_centers.rds&quot;))
+
+tm_shape(sg_boundary) +
+  tm_borders(col = &quot;grey&quot;) + 
+  tm_shape(identified_hms) +
+    tm_fill(&quot;n_users_home&quot;,
+            palette = &quot;PuRd&quot;,
+            style = &quot;quantile&quot;,
+            alpha = 0.8,
+            legend.is.portrait = F,
+            legend.format = list(digits = 0),
+            legend.hist = TRUE,
+            title = &quot;Number of inferred homes&quot;) + 
+  tm_shape(streets) +
+  tm_lines(col = rgb(80, 80, 80, maxColorValue = 255), lwd = 1, alpha = 0.8) +
+  tm_shape(area_hatched) + 
+  tm_lines(col = rgb(80, 110, 120, maxColorValue = 255), alpha = 0.8) +
+  tm_layout(title.position = c(&quot;left&quot;, &quot;top&quot;),
+            title.size = 0.7,
+            main.title = &quot;Spatial distribution of inferred home locations&quot;,
+            main.title.size = 1.2,
+            frame = F,
+            legend.position = c(&quot;right&quot;, &quot;bottom&quot;),
+            legend.bg.color = &quot;white&quot;,
+            legend.width = 0.3,
+            legend.title.size  = 0.8,
+            legend.text.size = 0.66,
+            legend.hist.height = 0.2,
+            legend.hist.width = 0.3,
+            legend.hist.size = 0.5)</code></pre>
+<p><img src="figure/004-identify-home-locations.Rmd/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;#EAE4F1CC&quot; &quot;#D2B3D6CC&quot; &quot;#D677B9CC&quot; &quot;#E62887CC&quot; &quot;#B80A4ECC&quot;</code></pre>
+<pre class="r"><code>#residents in Singapore 2015
+pop2015 &lt;- st_read(here(&quot;data/raw_data/PLAN_BDY_DWELLING_TYPE_2015.shp&quot;), quiet = T) %&gt;%
+  st_transform(., crs = 3414) %&gt;% 
+  st_make_valid()
+
+inferred_residents &lt;- pop2015 %&gt;% 
+  dplyr::select(PLN_AREA_N) %&gt;% 
+  st_join(identified_hms, ., largest = T) %&gt;% 
+  st_set_geometry(NULL) %&gt;% 
+  group_by(PLN_AREA_N) %&gt;% 
+  dplyr::summarise(n_inferred_residents = sum(n_users_home))
+
+actual_residents &lt;- pop2015 %&gt;% 
+  st_set_geometry(NULL) %&gt;% 
+  select(c(PLN_AREA_N, TOTAL))
+
+norm_residents &lt;- left_join(inferred_residents, actual_residents) %&gt;% 
+  mutate(norm_n_inferred_residents = n_inferred_residents/sum(n_inferred_residents),
+         norm_n_actual_residents = TOTAL/sum(TOTAL))
+
+
+ggscatter(norm_residents, x = &quot;norm_n_inferred_residents&quot;, y = &quot;norm_n_actual_residents&quot;,
+          add = &quot;reg.line&quot;) +
+  stat_cor(label.y = 0.065) +
+  stat_regline_equation(label.y = 0.07) + 
+  ggrepel::geom_text_repel(aes(label=PLN_AREA_N), size = 2.5) +
+  theme(panel.background=element_rect(fill = &quot;white&quot;, colour = &quot;black&quot;), 
+        title = element_text(size = 12)) + 
+  labs(x = &quot;Normalized number of inferred residents&quot;,
+       y = &quot;Normalized number of actual residents&quot;, 
+       title = &quot;Correlation between inferred residents and actual residents&quot;) </code></pre>
+<p><img src="figure/004-identify-home-locations.Rmd/unnamed-chunk-14-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-homelocator" class="csl-entry">
+Qingqing Chen, Ate Poorthuis. 2021. <em>Identifying Home Locations in Human Mobility Data: An Open-Source r Package for Comparison and Reproducibility</em>. <em>International Journal of Geographical Information Science</em>. <a href="https://doi.org/10.1080/13658816.2021.1887489">https://doi.org/10.1080/13658816.2021.1887489</a>.
+</div>
+</div>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span> Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.0.4 (2021-02-15)
+Platform: x86_64-apple-darwin17.0 (64-bit)
+Running under: macOS Big Sur 10.16
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRblas.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/4.0/Resources/lib/libRlapack.dylib
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] tmap_3.3-1       ggpubr_0.4.0     lubridate_1.7.10 here_1.0.1      
+ [5] sf_0.9-7         forcats_0.5.1    stringr_1.4.0    dplyr_1.0.5     
+ [9] purrr_0.3.4      readr_1.4.0      tidyr_1.1.3      tibble_3.1.0    
+[13] ggplot2_3.3.3    tidyverse_1.3.0 
+
+loaded via a namespace (and not attached):
+  [1] leafem_0.1.3       colorspace_2.0-0   ggsignif_0.6.0    
+  [4] ellipsis_0.3.1     class_7.3-18       rio_0.5.16        
+  [7] leaflet_2.0.4.1    rprojroot_2.0.2    base64enc_0.1-3   
+ [10] fs_1.5.0           dichromat_2.0-0    rstudioapi_0.13   
+ [13] farver_2.1.0       ggrepel_0.9.1      fansi_0.4.2       
+ [16] xml2_1.3.2         splines_4.0.4      codetools_0.2-18  
+ [19] knitr_1.31         polynom_1.4-0      jsonlite_1.7.2    
+ [22] workflowr_1.6.2    tmaptools_3.1-1    broom_0.7.5       
+ [25] dbplyr_2.1.0       png_0.1-7          compiler_4.0.4    
+ [28] httr_1.4.2         backports_1.2.1    Matrix_1.3-2      
+ [31] assertthat_0.2.1   cli_2.3.1          later_1.1.0.1     
+ [34] htmltools_0.5.1.1  tools_4.0.4        gtable_0.3.0      
+ [37] glue_1.4.2         Rcpp_1.0.6         carData_3.0-4     
+ [40] cellranger_1.1.0   jquerylib_0.1.3    raster_3.4-5      
+ [43] vctrs_0.3.6        nlme_3.1-152       leafsync_0.1.0    
+ [46] crosstalk_1.1.1    lwgeom_0.2-5       xfun_0.21         
+ [49] openxlsx_4.2.3     rvest_0.3.6        lifecycle_1.0.0   
+ [52] rstatix_0.7.0      XML_3.99-0.5       scales_1.1.1      
+ [55] hms_1.0.0          promises_1.2.0.1   parallel_4.0.4    
+ [58] RColorBrewer_1.1-2 yaml_2.2.1         curl_4.3          
+ [61] sass_0.3.1         stringi_1.5.3      highr_0.8         
+ [64] e1071_1.7-4        zip_2.1.1          rlang_0.4.10      
+ [67] pkgconfig_2.0.3    evaluate_0.14      lattice_0.20-41   
+ [70] labeling_0.4.2     htmlwidgets_1.5.3  tidyselect_1.1.0  
+ [73] magrittr_2.0.1     R6_2.5.0           generics_0.1.0    
+ [76] DBI_1.1.1          mgcv_1.8-33        pillar_1.5.1      
+ [79] haven_2.3.1        whisker_0.4        foreign_0.8-81    
+ [82] withr_2.4.1        units_0.6-7        stars_0.5-1       
+ [85] abind_1.4-5        sp_1.4-5           modelr_0.1.8      
+ [88] crayon_1.4.1       car_3.0-10         KernSmooth_2.23-18
+ [91] utf8_1.1.4         rmarkdown_2.7      grid_4.0.4        
+ [94] readxl_1.3.1       data.table_1.14.0  git2r_0.28.0      
+ [97] reprex_1.0.0       digest_0.6.27      classInt_0.4-3    
+[100] httpuv_1.5.5       munsell_0.5.0      viridisLite_0.3.0 
+[103] bslib_0.2.4       </code></pre>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+http://docs.mathjax.org/en/latest/configuration.html.  This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("show" === "show");
+});
+</script>
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
