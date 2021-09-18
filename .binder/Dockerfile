@@ -7,6 +7,6 @@ USER ${NB_USER}
 
 
 
-RUN wget https://github.com/spatialnetworkslab/entangledfootprints/raw/master/DESCRIPTION && R -e "options(repos = list(CRAN = 'https://mran.revolutionanalytics.com/snapshot/2021-09-18/')); devtools::install_deps(); devtools::install()"
+RUN wget https://github.com/spatialnetworkslab/entangledfootprints/raw/main/DESCRIPTION && R -e "options(repos = list(CRAN = 'https://mran.revolutionanalytics.com/snapshot/2021-09-18/')); devtools::install_deps(); devtools::install()"
 
 RUN rm DESCRIPTION.1; exit 0
