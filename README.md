@@ -9,7 +9,7 @@ This repository contains the data and code for our paper:
 > footprints: Understanding urban neighbourhoods by measuring distance,
 > diversity, and direction of flows in Singapore*. Computers, Computers,
 > Environment and Urban Systems, 90, p. 101708.
-> <doi:10.1016/j.compenvurbsys.2021.101708>
+> <https://doi.org/10.1016/j.compenvurbsys.2021.101708>
 
 ### Introduction
 
