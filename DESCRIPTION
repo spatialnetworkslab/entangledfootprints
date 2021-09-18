@@ -1,0 +1,51 @@
+Type: Compendium
+Package: entangledfootprints
+Title: Entangled footprints
+Version: 0.0.1
+Authors@R: 
+  c(person(given = "Qingqing",
+           family = "Chen",
+           role = c("aut", "cre"),
+           email = "qchen47@buffalo.edu"),
+    person(given = "Ate",
+           family = "Poorthuis",
+           role = c("aut"),
+           email = "ate.poorthuis@kuleuven.be"))
+Description: Entangled footprints: Understanding urban neighbourhoods by measuring distance, diversity, and direction of flows in Singapore.
+License: MIT
+Depends: 
+    broom,
+    cartography,
+    cowplot,
+    dplyr,
+    devtools,
+    grid,
+    ggpubr,
+    ggspatial,
+    here,
+    homelocator,
+    janitor,
+    knitr,
+    lubridate,
+    mapedit,
+    magick,
+    osmdata,
+    purrrogress,
+    PerformanceAnalytics,
+    RColorBrewer,
+    rmarkdown,
+    roxygen2,
+    sf,
+    spdep,
+    stars,
+    stargazer,
+    tidyverse,
+    tmap,
+    tmaptools,
+    vegan
+Remotes: 
+    spatialnetworkslab/homelocator
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
